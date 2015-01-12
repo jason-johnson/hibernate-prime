@@ -1,7 +1,9 @@
 module Database.Hibernate
 (
-  dummy,
-  dummy2
+  session
+  ,Session
+  ,SessionT
+  ,dummy2
 )
 where
 
