@@ -4,7 +4,7 @@ module Database.Hibernate
   ,Session
   ,SessionT
   ,genericSessionDriver
-  ,runSessionT
+  ,runSession
   ,save
   ,dummy2
 )

@@ -4,13 +4,13 @@ module Database.Hibernate.Session
   ,Session
   ,SessionT
   ,genericSessionDriver
-  ,runSessionT
+  ,runSession
   ,save
 )
 where
 
 import Control.Applicative
-import Control.Monad (ap, mzero, mplus, MonadPlus)
+import Control.Monad (ap, mzero, mplus, MonadPlus, liftM)
 import Control.Arrow (first)
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad.Trans.Class (lift, MonadTrans)
@@ -21,6 +21,9 @@ type Session = SessionT IO
 -- SessionT transformer
 
 newtype SessionT m a = SessionT { runSessionT :: SessionDriver -> m (a, SessionDriver) }
+
+runSession :: Monad m => SessionT m a -> SessionDriver -> m a
+runSession m sd = liftM fst $ runSessionT m sd
 
 session :: Monad m => (SessionDriver -> (a, SessionDriver)) -> SessionT m a
 session f = SessionT (return . f)

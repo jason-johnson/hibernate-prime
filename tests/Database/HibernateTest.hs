@@ -46,7 +46,8 @@ address = Address "Steinweg" 12 city
 f :: Session Country
 f = save country
 
-x = runSessionT f genericSessionDriver
+x :: IO Country
+x = runSession f genericSessionDriver
 
 -- NEW STRATEGY
 
