@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Database.Hibernate.Session
 (
    session
@@ -6,6 +7,10 @@ module Database.Hibernate.Session
   ,genericSessionDriver
   ,runSession
   ,save
+  ,HibernateFieldType(..)
+  ,HibernateField(..)
+  ,HibernateTable(..)
+  ,Hibernatable(..)
 )
 where
 
@@ -61,21 +66,42 @@ instance MonadTrans (SessionT) where
 instance (MonadIO m) => MonadIO (SessionT m) where
     liftIO = lift . liftIO
 
+-- hibernatable
+
+data HibernateFieldType =
+    HibernateIntField Int
+  | HibernateCharField Char
+  | HibernateStringField String     -- TODO: This stuff should probably go in Types.hs, but maybe not, have to think about it
+  deriving (Show)
+
+data HibernateField = HibernateField { hfType :: HibernateFieldType, hfName :: String }
+  deriving (Show)
+
+data HibernateTable = HibernateTable { htName :: String, htFields :: [HibernateField] }
+  deriving (Show)
+
+class Hibernatable a where
+  derive :: a -> HibernateTable
+
 -- SessionDriver
 
 newtype SessionDriver = SessionDriver {
-        driverSave :: IO ()
+        driverSave :: Hibernatable a => a -> IO a
  }
  
 instance Show (SessionDriver) where       -- TODO: Remove this later
   show = const "SESSION-DRIVER"
  
 genericSessionDriver :: SessionDriver
-genericSessionDriver = SessionDriver $ putStrLn "Saved!"
+genericSessionDriver = SessionDriver $ \x -> do
+  putStrLn "Saving..."
+  print . derive $ x
+  putStrLn "Done!"
+  return x
 
 -- Session commands
 
-save :: MonadIO m => a -> SessionT m a
+save :: (MonadIO m, Hibernatable a) => a -> SessionT m a
 save x = SessionT $ \sd -> do
-  liftIO $ driverSave sd
-  return (x, sd)
+  x' <- liftIO $ driverSave sd x
+  return (x', sd)

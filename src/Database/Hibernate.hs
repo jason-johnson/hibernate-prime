@@ -6,6 +6,10 @@ module Database.Hibernate
   ,genericSessionDriver
   ,runSession
   ,save
+  ,HibernateFieldType(..)
+  ,HibernateField(..)
+  ,HibernateTable(..)
+  ,Hibernatable(..)
   ,dummy2
 )
 where

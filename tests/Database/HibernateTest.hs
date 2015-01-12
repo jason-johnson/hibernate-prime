@@ -43,11 +43,21 @@ state = State "SG" country
 city = City "Buchs" state "9470"
 address = Address "Steinweg" 12 city
 
-f :: Session Country
-f = save country
+instance Hibernatable Country where
+  derive c = HibernateTable "Country" [HibernateField (HibernateStringField . name $ c) "name"]
 
-x :: IO Country
+instance Hibernatable State where
+  derive s = HibernateTable "State" [HibernateField (HibernateStringField . name $ s) "name", HibernateField (HibernateStringField . name . sCountry $ s) "country_id"]
+
+saveCountry :: Session Country
+saveCountry = save country
+
+x :: IO (Country, State)
 x = runSession f genericSessionDriver
+  where f = do
+              c <- saveCountry
+              s <- save state
+              return (c, s)
 
 -- NEW STRATEGY
 
