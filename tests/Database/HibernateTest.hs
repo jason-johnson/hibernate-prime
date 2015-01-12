@@ -43,8 +43,10 @@ state = State "SG" country
 city = City "Buchs" state "9470"
 address = Address "Steinweg" 12 city
 
-f :: SessionT String IO Country
-f = return country
+f :: Session Country
+f = save country
+
+x = runSessionT f genericSessionDriver
 
 -- NEW STRATEGY
 
