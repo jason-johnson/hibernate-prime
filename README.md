@@ -1,4 +1,4 @@
-hibernate-
+hibernate-prime
 ==========
 
-Hibernate' is a functional relational mapper for Haskell.
+Hibernate' (or Hibernate Prime) is a functional relational mapper for Haskell.
