@@ -10,3 +10,4 @@ cabal-dev
 .settings/
 sites/
 .DS_Store
+cabal.sandbox.config
