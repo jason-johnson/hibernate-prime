@@ -14,7 +14,8 @@ library
   exposed-modules:  Database.Hibernate
   other-modules:    
                    Database.Hibernate.Session,
-                   Database.Hibernate.Transaction
+                   Database.Hibernate.Transaction,
+                   Database.Hibernate.Session.Class
 
 test-suite hibernate-test
   type:            exitcode-stdio-1.0
@@ -29,7 +30,8 @@ test-suite hibernate-test
                   Database.Hibernate.SessionTest,
                   Database.HibernateTest,
                   Database.Hibernate.Transaction,
-                  Database.Hibernate.TransactionTest
+                  Database.Hibernate.TransactionTest,
+                  Database.Hibernate.Session.Class
   hs-source-dirs:  
                   tests,
                   src
