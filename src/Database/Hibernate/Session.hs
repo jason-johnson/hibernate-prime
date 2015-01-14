@@ -7,13 +7,11 @@ module Database.Hibernate.Session
   ,genericSessionDriver
   ,runSession
   ,save
-  ,HibernateFieldType(..)
-  ,HibernateField(..)
-  ,HibernateTable(..)
-  ,Hibernatable(..)
 )
 where
 
+import Database.Hibernate.Driver (Driver, driverSave, genericSessionDriver)
+import Database.Hibernate.Serialization (Serializable)
 import Control.Applicative
 import Control.Monad (ap, mzero, mplus, MonadPlus, liftM)
 import Control.Arrow (first)
@@ -25,12 +23,12 @@ type Session = SessionT IO
 
 -- SessionT transformer
 
-newtype SessionT m a = SessionT { runSessionT :: SessionDriver -> m (a, SessionDriver) }
+newtype SessionT m a = SessionT { runSessionT :: Driver -> m (a, Driver) }
 
-runSession :: Monad m => SessionT m a -> SessionDriver -> m a
+runSession :: Monad m => SessionT m a -> Driver -> m a
 runSession m sd = liftM fst $ runSessionT m sd
 
-session :: Monad m => (SessionDriver -> (a, SessionDriver)) -> SessionT m a
+session :: Monad m => (Driver -> (a, Driver)) -> SessionT m a
 session f = SessionT (return . f)
 
 instance (Functor f) => Functor (SessionT f) where
@@ -66,42 +64,9 @@ instance MonadTrans (SessionT) where
 instance (MonadIO m) => MonadIO (SessionT m) where
     liftIO = lift . liftIO
 
--- hibernatable
-
-data HibernateFieldType =
-    HibernateIntField Int
-  | HibernateCharField Char
-  | HibernateStringField String     -- TODO: This stuff should probably go in Types.hs, but maybe not, have to think about it
-  deriving (Show)
-
-data HibernateField = HibernateField { hfType :: HibernateFieldType, hfName :: String }
-  deriving (Show)
-
-data HibernateTable = HibernateTable { htName :: String, htFields :: [HibernateField] }
-  deriving (Show)
-
-class Hibernatable a where
-  derive :: a -> HibernateTable
-
--- SessionDriver
-
-newtype SessionDriver = SessionDriver {
-        driverSave :: Hibernatable a => a -> IO a
- }
- 
-instance Show (SessionDriver) where       -- TODO: Remove this later
-  show = const "SESSION-DRIVER"
- 
-genericSessionDriver :: SessionDriver
-genericSessionDriver = SessionDriver $ \x -> do
-  putStrLn "Saving..."
-  print . derive $ x
-  putStrLn "Done!"
-  return x
-
 -- Session commands
 
-save :: (MonadIO m, Hibernatable a) => a -> SessionT m a
+save :: (MonadIO m, Serializable a) => a -> SessionT m a
 save x = SessionT $ \sd -> do
   x' <- liftIO $ driverSave sd x
   return (x', sd)

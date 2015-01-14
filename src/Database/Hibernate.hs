@@ -1,18 +1,21 @@
 module Database.Hibernate
 (
-  session
+   session
   ,Session
   ,SessionT
   ,genericSessionDriver
   ,runSession
   ,save
-  ,HibernateFieldType(..)
-  ,HibernateField(..)
-  ,HibernateTable(..)
-  ,Hibernatable(..)
+  ,Serializable(..)
+  ,FieldTypeData(..)
+  ,KeyTypeData(..)
+  ,FieldData(..)
+  ,KeyFieldData(..)
+  ,RowData(..)
   ,dummy2
 )
 where
 
 import Database.Hibernate.Session
 import Database.Hibernate.Transaction
+import Database.Hibernate.Serialization

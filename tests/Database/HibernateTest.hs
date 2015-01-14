@@ -43,11 +43,13 @@ state = State "SG" country
 city = City "Buchs" state "9470"
 address = Address "Steinweg" 12 city
 
-instance Hibernatable Country where
-  derive c = HibernateTable "Country" [HibernateField (HibernateStringField . name $ c) "name"]
+instance Serializable Country where
+  dehydrate c = RowData "Country" [FieldData (StringFieldData . name $ c) "name"] []
+  hydrate _ = undefined
 
-instance Hibernatable State where
-  derive s = HibernateTable "State" [HibernateField (HibernateStringField . name $ s) "name", HibernateField (HibernateStringField . name . sCountry $ s) "country_id"]
+instance Serializable State where
+  dehydrate s = RowData "State" [FieldData (StringFieldData . name $ s) "name", FieldData (StringFieldData . name . sCountry $ s) "country_id"] []
+  hydrate _ = undefined
 
 saveCountry :: Session Country
 saveCountry = save country

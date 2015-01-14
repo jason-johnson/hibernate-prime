@@ -15,7 +15,10 @@ library
   other-modules:    
                    Database.Hibernate.Session,
                    Database.Hibernate.Transaction,
-                   Database.Hibernate.Session.Class
+                   Database.Hibernate.Session.Class,
+                   Database.Hibernate.Types,
+                   Database.Hibernate.Driver,
+                   Database.Hibernate.Serialization
 
 test-suite hibernate-test
   type:            exitcode-stdio-1.0
@@ -31,7 +34,10 @@ test-suite hibernate-test
                   Database.HibernateTest,
                   Database.Hibernate.Transaction,
                   Database.Hibernate.TransactionTest,
-                  Database.Hibernate.Session.Class
+                  Database.Hibernate.Session.Class,
+                  Database.Hibernate.Types,
+                  Database.Hibernate.Driver,
+                  Database.Hibernate.Serialization
   hs-source-dirs:  
                   tests,
                   src
