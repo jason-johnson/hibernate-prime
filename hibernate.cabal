@@ -18,7 +18,8 @@ library
                    Database.Hibernate.Session.Class,
                    Database.Hibernate.Types,
                    Database.Hibernate.Driver,
-                   Database.Hibernate.Serialization
+                   Database.Hibernate.Serialization,
+                   Database.Hibernate.Driver.Command
 
 test-suite hibernate-test
   type:            exitcode-stdio-1.0
@@ -37,7 +38,8 @@ test-suite hibernate-test
                   Database.Hibernate.Session.Class,
                   Database.Hibernate.Types,
                   Database.Hibernate.Driver,
-                  Database.Hibernate.Serialization
+                  Database.Hibernate.Serialization,
+                  Database.Hibernate.Driver.Command
   hs-source-dirs:  
                   tests,
                   src

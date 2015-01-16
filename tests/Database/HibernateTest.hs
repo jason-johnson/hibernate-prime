@@ -44,11 +44,11 @@ city = City "Buchs" state "9470"
 address = Address "Steinweg" 12 city
 
 instance Serializable Country where
-  dehydrate c = RowData "Country" [FieldData (StringFieldData . name $ c) "name"] []
+  dehydrate c = RowData "Country" [FieldData "name" (StringFieldData . name $ c)] []
   hydrate _ = undefined
 
 instance Serializable State where
-  dehydrate s = RowData "State" [FieldData (StringFieldData . name $ s) "name", FieldData (StringFieldData . name . sCountry $ s) "country_id"] []
+  dehydrate s = RowData "State" [FieldData "name" (StringFieldData . name $ s), FieldData "country_id" (StringFieldData . name . sCountry $ s)] []
   hydrate _ = undefined
 
 saveCountry :: Session Country

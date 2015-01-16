@@ -11,7 +11,8 @@ module Database.Hibernate.Session
 where
 
 import Database.Hibernate.Driver (Driver, driverSave, genericSessionDriver)
-import Database.Hibernate.Serialization (Serializable)
+import Database.Hibernate.Serialization
+import Database.Hibernate.Driver.Command
 import Control.Applicative
 import Control.Monad (ap, mzero, mplus, MonadPlus, liftM)
 import Control.Arrow (first)
@@ -68,5 +69,15 @@ instance (MonadIO m) => MonadIO (SessionT m) where
 
 save :: (MonadIO m, Serializable a) => a -> SessionT m a
 save x = SessionT $ \sd -> do
-  x' <- liftIO $ driverSave sd x
-  return (x', sd)
+  _ <- liftIO . driverSave sd . buildCommands . dehydrate $ x
+  return (x, sd)
+  where
+    buildCommands (RowData tableName fieldData _) = StoreTable tableName . map buildColumn $ fieldData
+    buildColumn (FieldData colName fieldData) = StoreColumnData colName . buildColumValue $ fieldData
+    buildColumValue (BoolFieldData val) = BoolData val
+    buildColumValue (Int16FieldData val) = IntData . fromIntegral $ val
+    buildColumValue (IntFieldData val) = IntData val
+    buildColumValue (CharFieldData val) = CharData val
+    buildColumValue (StringFieldData val) = StringData val
+    buildColumValue (NullableFieldData val) = NullableData . fmap buildColumValue $ val
+    buildColumns (FieldData columnName (NullableFieldData val)) = undefined

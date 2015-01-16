@@ -40,22 +40,17 @@ data FieldTypeData =
   | IntFieldData Int
   | CharFieldData Char
   | StringFieldData String
-  | NullableData (Maybe FieldData)
-  deriving (Show)
+  | NullableFieldData (Maybe FieldTypeData)
 
 data KeyTypeData =
     NativeSerialKeyData (Maybe Int)
   | GuidKeyData (Maybe String)
-  deriving (Show)
 
-data FieldData = FieldData { fdType :: FieldTypeData, fdName :: FieldName }
-  deriving (Show)
+data FieldData = FieldData FieldName FieldTypeData
 
-data KeyFieldData = KeyData { kdType :: KeyTypeData, kdName :: FieldName }
-  deriving (Show)
+data KeyFieldData = KeyData KeyTypeData FieldName
 
-data RowData = RowData { rdTableName :: TableName, rdFieldData :: [FieldData], rdKeyData :: [KeyFieldData] }
-  deriving (Show)
+data RowData = RowData TableName [FieldData] [KeyFieldData]
 -- TODO: Ok, so the idea for the moment is that we don't store anything about the tables we know (this would require some sort of "global" storage).  We encode it via the Serializable type class and have the client
 -- TODO: simply provide this data for persistence.  We'll see how far we can get with this before we need more sophisticated infrastructure 
 
