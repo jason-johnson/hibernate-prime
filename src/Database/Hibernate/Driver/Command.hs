@@ -1,6 +1,6 @@
 module Database.Hibernate.Driver.Command
 (
-   ColumnData(..)
+   FieldData(..)
   ,KeyData(..)
   ,ColumnCommand(..)
   ,TableCommand(..)
@@ -15,13 +15,15 @@ data ColumnData =
   | CharData Char
   | StringData String
   | NullableData (Maybe ColumnData)
+data TableInfo = TableInfo { tiName :: String, tiSchema :: String }
+data FieldInfo = FieldInfo { fiName :: String, fiSchema :: String }
 
 data KeyData =
     NativeSerialKeyData Int
   | GuidKeyData String
 
 data ColumnCommand =
-  StoreColumnData String ColumnData
+  StoreColumnData String FieldData
 
 --data RowCommand =
 --  Insert [ColumnCommand]

@@ -13,6 +13,7 @@ import Data.Int (Int16)
 
 type FieldName = String
 type TableName = String
+type SchemaName = String
 
 --data FieldType =
 --    BoolField
