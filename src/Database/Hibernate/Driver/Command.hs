@@ -3,38 +3,40 @@ module Database.Hibernate.Driver.Command
    FieldData(..)
   ,KeyData(..)
   ,ColumnCommand(..)
-  ,TableCommand(..)
-  ,RowCommandResponse(..)
+  ,SaveTable(..)
+  ,UpdateTable(..)
   ,TableCommandResponse(..)
+  ,TableInfo(..)
+  ,FieldInfo(..)
 )
 where
 
-data ColumnData =
+data TableInfo = TableInfo { tiName :: String, tiSchema :: String }
+newtype FieldInfo = FieldInfo String
+
+data FieldData =
     BoolData Bool
   | IntData Int
   | CharData Char
   | StringData String
-  | NullableData (Maybe ColumnData)
-data TableInfo = TableInfo { tiName :: String, tiSchema :: String }
-data FieldInfo = FieldInfo { fiName :: String, fiSchema :: String }
+  | NullableData (Maybe FieldData)
 
 data KeyData =
     NativeSerialKeyData Int
   | GuidKeyData String
 
 data ColumnCommand =
-  StoreColumnData String FieldData
+  StoreColumnData FieldInfo FieldData
 
 --data RowCommand =
 --  Insert [ColumnCommand]
 
-data TableCommand =
-  StoreTable String [ColumnCommand]
+data SaveTable = SaveTable TableInfo [ColumnCommand]
+
+data UpdateTable = UpdateTable TableInfo [ColumnCommand]     -- Needs the key to know what to update 
 
 -- Responses
 
-data RowCommandResponse =
-  StoredRow KeyData
-
 data TableCommandResponse =
-  Stored String [RowCommandResponse]
+    Stored TableInfo KeyData
+  | Updated TableInfo KeyData

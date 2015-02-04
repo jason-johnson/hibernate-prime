@@ -6,6 +6,8 @@ module Database.Hibernate
   ,genericSessionDriver
   ,runSession
   ,save
+  ,update
+  ,update'
   ,Serializable(..)
   ,FieldTypeData(..)
   ,KeyTypeData(..)

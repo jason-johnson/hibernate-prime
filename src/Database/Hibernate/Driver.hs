@@ -7,28 +7,47 @@ module Database.Hibernate.Driver
 where
 
 import Database.Hibernate.Driver.Command
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe, fromMaybe)
 import Data.List (intercalate)
 
-newtype Driver = Driver {
-        driverSave :: TableCommand -> IO TableCommandResponse
+data Driver = Driver {
+         driverSave   :: SaveTable -> IO TableCommandResponse
+        ,driverUpdate :: UpdateTable -> IO TableCommandResponse 
  }
  
 instance Show (Driver) where       -- TODO: Remove this later
   show = const "SESSION-DRIVER"
 
 genericSessionDriver :: Driver
-genericSessionDriver = Driver save
+genericSessionDriver = Driver save update
   where
-    save (StoreTable tableName rows) = do
-      build tableName rows
-      return . Stored tableName . (:[]) . StoredRow . NativeSerialKeyData $ 1
-    interpretColCommand (StoreColumnData colName colData) = colData2tup colName colData
-    colData2tup n (BoolData val) = Just (n, show val)
-    colData2tup n (IntData val) = Just (n, show val)
-    colData2tup n (CharData val) = Just (n, show val)
-    colData2tup n (StringData val) = Just (n, show val)
-    colData2tup n (NullableData mcd) = maybe Nothing (colData2tup n) mcd
-    build tn = insertStmt tn . foldr mkIns ([], []) . mapMaybe interpretColCommand
-    mkIns (n, cd) (n', cd') = (n : n', cd : cd')
-    insertStmt table x = putStrLn $ "insert into " ++ table ++ "(" ++ (intercalate ", " . fst) x ++ ") values(" ++ (intercalate ", " . snd) x ++ ")"
+    save (SaveTable ti@(TableInfo tableName _) rows) = do
+      insertStmt tableName . toListPair $ rows
+      return . Stored ti . NativeSerialKeyData $ 1
+
+    insertStmt tName xs = putStrLn $ "insert into " ++ tName ++ "(" ++ (intercalate ", " . fst) xs ++ ") values(" ++ (intercalate ", " . snd) xs ++ ")"
+    
+    update (UpdateTable ti@(TableInfo tableName _) rows) = do
+      updateStmt tableName . toPairsList $ rows
+      return . Updated ti . NativeSerialKeyData $ 1
+    
+    updateStmt tName xs = putStrLn $ "update " ++ tName ++ " " ++ (intercalate ", " . map (\(f,v) -> "set " ++ f ++ " = " ++ v) $ xs)
+    
+    mapCC f (StoreColumnData (FieldInfo colName) colData) = f colName colData
+    
+    toMaybeString (BoolData val) = justShow val
+    toMaybeString (IntData val) = justShow val
+    toMaybeString (CharData val) = justShow val
+    toMaybeString (StringData val) = justShow val
+    toMaybeString (NullableData mcd) = maybe Nothing toMaybeString mcd
+    
+    justShow :: Show a => a -> Maybe String
+    justShow = Just . show
+    
+    accP (n, cd) (ns, cds) = (n : ns, cd : cds)
+    toListPair = foldr accP ([], []) . mapMaybe (mapCC go)
+      where
+        go n x = go' n $ toMaybeString x
+        go' n = fmap (\x -> (n, x))
+    toPairsList = map $ mapCC go
+      where go n = fmap (\x -> (n, fromMaybe "NULL" x)) toMaybeString
