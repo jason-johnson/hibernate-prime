@@ -7,7 +7,7 @@ module Database.Hibernate
   ,runSession
   ,save
   ,update
-  ,update'
+  ,set
   ,Serializable(..)
   ,FieldTypeData(..)
   ,KeyTypeData(..)

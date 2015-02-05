@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, TypeFamilies #-}
 module Database.Hibernate.Session
 (
    session
@@ -8,7 +8,7 @@ module Database.Hibernate.Session
   ,runSession
   ,save
   ,update
-  ,update'
+  ,set
 )
 where
 
@@ -21,23 +21,6 @@ import Control.Arrow (first)
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad.Trans.Class (lift, MonadTrans)
 import Control.Monad.Fix (mfix, MonadFix)
-
--- UpdateContext
-
-newtype UpdateContext a = UpdateContext { runUpdateContext :: UpdateTable -> (a, UpdateTable) }
-
-instance Functor UpdateContext where
-    fmap f m = UpdateContext $ first f <$> runUpdateContext m
-
-instance Applicative UpdateContext where
-    pure = return
-    (<*>) = ap
-
-instance Monad UpdateContext where
-    return a = UpdateContext $ \ut -> (a, ut)
-    m >>= k = UpdateContext $ \ ut ->
-      let (x, ut') = runUpdateContext m ut
-      in runUpdateContext (k x) ut'
 
 -- SessionT transformer
 
@@ -99,17 +82,20 @@ save x = SessionT $ \sd -> do
     buildColumValue (CharFieldData val) = CharData val
     buildColumValue (StringFieldData val) = StringData val
     buildColumValue (NullableFieldData val) = NullableData . fmap buildColumValue $ val
-
--- NOTE: This signature looks like it could work but it means f functions have to be fused with >>=   (which is probably correct as they cannot be a (.) compose)
-update :: (MonadIO m, Serializable a) => UpdateContext a -> a -> SessionT m a
-update f x = SessionT $ \sd -> do
+ 
+update :: (MonadIO m, Serializable a) => a -> ((a, UpdateTable) -> (a, UpdateTable)) -> SessionT m a
+update x f = SessionT $ \sd -> do
   _ <- liftIO . driverUpdate sd $ ut                                  -- TODO: this will return a response that has the key in it, which must be put in x' (which will require a type family to do probably)
   return (x', sd)
   where
-    (x', ut) = runUpdateContext f $ UpdateTable ti []           -- f needs to build the update commands at the same time as updating the actual structure.  We need a lens plus something with table info
+    (x', ut) = f (x, UpdateTable ti [])           -- f needs to build the update commands at the same time as updating the actual structure.  We need a lens plus something with table info
     ti = tableInfo . dehydrate $ x
     tableInfo (RowData tableName _ _) = TableInfo tableName ""
 
--- NOTE: With this signature we would have to first apply (_f _x) and then simply do an SQL:    update _x set <field> = <field value>, ... where id = <id>      where the ... is all remaining fields in the record 
-update' :: (MonadIO m, Serializable a) => (a -> a) -> a -> SessionT m a
-update' _f _x = undefined
+
+set :: ((a1 -> [b]) -> a -> [t], String, b -> Database.Hibernate.Driver.Command.FieldData) -> b -> (a, UpdateTable) -> (t, UpdateTable)
+set (l, fname, toFieldData) v (x, uc) = (l' x, tl' uc)
+  where
+    l' = head . l ((:[]) . const v)         -- TODO: If we pull in Identity, we should use that because it makes everything clearer
+    tl' (UpdateTable ti ccs) = UpdateTable ti (cc : ccs)
+    cc = StoreColumnData (FieldInfo fname) $ toFieldData v

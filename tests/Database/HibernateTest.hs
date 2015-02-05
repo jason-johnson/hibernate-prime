@@ -4,18 +4,28 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 module Database.HibernateTest where
-import Database.Hibernate
 
+import Database.Hibernate
+import Database.Hibernate.Driver.Command (FieldData(StringData))
 
 import Test.Framework
+import Data.Functor ((<$>))
+import Control.Applicative (Const(..))
 
 data Country = Country { cName :: String } deriving (Show)
+
+cNameL f c@(Country name) = (\name' -> c { cName = name' }) <$> f name
+cNameCol = (cNameL, "name", StringData)
 
 data State = State {
       sName     :: String
     , sCountry  :: Country
     }
     deriving (Show)
+
+sNameL f s@(State name _) = (\name' -> s { sName = name' }) <$> f name
+sNameCol = (sNameL, "name", StringData)
+sCountryL  f s@(State _ country) = (\country' -> s { sCountry = country' }) <$> f country
 
 data City = City {
       ccName    :: String
@@ -24,6 +34,12 @@ data City = City {
     }
     deriving (Show)
 
+ccNameL f c@(City name _ _) = (\name' -> c { ccName = name' }) <$> f name
+ccNameCol = (ccNameL, "name", StringData)
+ccStateL f c@(City _ st _) = (\state' -> c { cState = state' }) <$> f st
+ccZipCodeL f c@(City _ _ zc) = (\zc' -> c { cZipCode = zc' }) <$> f zc
+ccZipCodeCol = (ccZipCodeL, "zip_code", StringData)
+
 data Address = Address {
       aStreetName  :: String
     , aPOBox       :: Int
@@ -31,12 +47,22 @@ data Address = Address {
     }
     deriving (Show)
 
-class NameField a t | a -> t where
-  name :: a -> t
+aStreetNameL f a@(Address name _ _) = (\name' -> a { aStreetName = name' }) <$> f name
+aPOBoxL f a@(Address _ pobox _) = (\pobox' -> a { aPOBox = pobox' }) <$> f pobox
+aCityL f a@(Address name _ _) = (\name' -> a { aStreetName = name' }) <$> f name
 
-instance NameField Country String where name = cName
-instance NameField State String where name = sName
-instance NameField City String where name = ccName
+class NameLens a t | a -> where
+  nameL :: Functor f => (t -> f t) -> a -> f a
+
+instance NameLens Country String where nameL = cNameL
+instance NameLens State String where nameL = sNameL
+instance NameLens City String where nameL = ccNameL
+
+get l = getConst . (l Const)
+set' l v = head . l ((:[]) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in Identity, but the idea is the same
+
+-- get (ccStateL . sCountryL . cNameL) city                     --> "CH"
+-- set (ccStateL . sCountryL . nameL) "EU" city                 -->  Just (City {ccName = "Buchs", cState = State {sName = "SG", sCountry = Country {cName = "EU"}}, cZipCode = "9470"})
 
 country = Country "CH"
 state = State "SG" country
@@ -44,22 +70,28 @@ city = City "Buchs" state "9470"
 address = Address "Steinweg" 12 city
 
 instance Serializable Country where
-  dehydrate c = RowData "Country" [FieldData "name" (StringFieldData . name $ c)] []
+  dehydrate c = RowData "Country" [FieldData "name" (StringFieldData . get cNameL $ c)] []
   hydrate _ = undefined
 
 instance Serializable State where
-  dehydrate s = RowData "State" [FieldData "name" (StringFieldData . name $ s), FieldData "country_id" (StringFieldData . name . sCountry $ s)] []
+  dehydrate s = RowData "State" [FieldData "name" (StringFieldData . get sNameL $ s), FieldData "country_name" (StringFieldData . get (sCountryL . cNameL) $ s)] []
   hydrate _ = undefined
 
-saveCountry :: Session Country
-saveCountry = save country
+saveCountry :: String -> Session Country
+saveCountry = save . Country
+
+setCityData = set ccNameCol "Buchs" . set ccZipCodeCol "9470"
 
 x :: IO (Country, State)
 x = runSession f genericSessionDriver
   where f = do
-              c <- saveCountry
-              s <- save state
-              return (c, s)
+              c     <- saveCountry "CH"
+              s     <- save $ State "SG" c          -- TODO: This will do a lookup in the cache for the id number of this country
+              c'    <- update c $ set cNameCol "CH2"
+              s'    <- update s $ set sNameCol "SG2"
+--            city  <- save $ City "Buchs" s "9470"
+--            city' <-  set <$> ccZipCodeL "9940" <*>  sStateL s $ city
+              return (c', s')
 
 -- NEW STRATEGY
 
