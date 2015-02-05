@@ -74,20 +74,20 @@ save x = SessionT $ \sd -> do
   _ <- liftIO . driverSave sd $ buildCommands                         -- TODO: this will return a response that has the key in it, which must be put in x (which will require a type family to do probably)
   return (x, sd)
   where
-    buildCommands = SaveTable (TableInfo (tableName x) "") $ mapColumns x tosd
+    buildCommands = SaveEntry (TableInfo (tableName x) "") $ mapColumns x tosd
     tosd n = StoreColumnData (FieldInfo n)
  
-update :: (MonadIO m, TableMetaData a) => a -> ((a, UpdateTable) -> (a, UpdateTable)) -> SessionT m a
+update :: (MonadIO m, TableMetaData a) => a -> ((a, UpdateEntry) -> (a, UpdateEntry)) -> SessionT m a
 update x f = SessionT $ \sd -> do
   _ <- liftIO . driverUpdate sd $ ut                                  -- TODO: this will return a response that has the key in it, which must be put in x' (which will require a type family to do probably)
   return (x', sd)
   where
-    (x', ut) = f (x, UpdateTable ti [])
+    (x', ut) = f (x, UpdateEntry ti [])
     ti = TableInfo (tableName x) (schemaName x)
 
-set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateTable) -> (Table c, UpdateTable)
+set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
 set c v (x, uc) = (l' x, tl' uc)
   where
     l' = head . lens c ((: []) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
-    tl' (UpdateTable ti ccs) = UpdateTable ti (cc : ccs)
+    tl' (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v

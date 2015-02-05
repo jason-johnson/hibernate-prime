@@ -11,8 +11,8 @@ import Data.Maybe (mapMaybe, fromMaybe)
 import Data.List (intercalate)
 
 data Driver = Driver {
-         driverSave   :: SaveTable -> IO TableCommandResponse
-        ,driverUpdate :: UpdateTable -> IO TableCommandResponse 
+         driverSave   :: SaveEntry -> IO TableCommandResponse
+        ,driverUpdate :: UpdateEntry -> IO TableCommandResponse
  }
  
 instance Show (Driver) where       -- TODO: Remove this later
@@ -21,13 +21,13 @@ instance Show (Driver) where       -- TODO: Remove this later
 genericSessionDriver :: Driver
 genericSessionDriver = Driver save update
   where
-    save (SaveTable ti@(TableInfo tableName _) rows) = do
+    save (SaveEntry ti@(TableInfo tableName _) rows) = do
       insertStmt tableName . toListPair $ rows
       return . Stored ti . NativeSerialKeyData $ 1
 
     insertStmt tName xs = putStrLn $ "insert into " ++ tName ++ "(" ++ (intercalate ", " . fst) xs ++ ") values(" ++ (intercalate ", " . snd) xs ++ ")"
     
-    update (UpdateTable ti@(TableInfo tableName _) rows) = do
+    update (UpdateEntry ti@(TableInfo tableName _) rows) = do
       updateStmt tableName . toPairsList $ rows
       return . Updated ti . NativeSerialKeyData $ 1
     

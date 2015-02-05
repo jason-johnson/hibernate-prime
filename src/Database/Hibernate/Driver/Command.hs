@@ -3,8 +3,8 @@ module Database.Hibernate.Driver.Command
    FieldData(..)
   ,KeyData(..)
   ,ColumnCommand(..)
-  ,SaveTable(..)
-  ,UpdateTable(..)
+  ,SaveEntry(..)
+  ,UpdateEntry(..)
   ,TableCommandResponse(..)
   ,TableInfo(..)
   ,FieldInfo(..)
@@ -31,9 +31,9 @@ data ColumnCommand =
 --data RowCommand =
 --  Insert [ColumnCommand]
 
-data SaveTable = SaveTable TableInfo [ColumnCommand]
+data SaveEntry = SaveEntry TableInfo [ColumnCommand]
 
-data UpdateTable = UpdateTable TableInfo [ColumnCommand]     -- Needs the key to know what to update 
+data UpdateEntry = UpdateEntry TableInfo [ColumnCommand]     -- Needs the key to know what to update
 
 -- Responses
 
