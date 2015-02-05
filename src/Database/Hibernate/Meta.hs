@@ -20,4 +20,7 @@ class ColumnMetaData c where
 
 class TableMetaData t where
   tableName :: t -> String
+  schemaName :: t -> String
+  schemaName _ = ""
   mapColumns :: t -> (String -> FieldData -> a) -> [a]
+  {-# MINIMAL tableName, mapColumns #-}
