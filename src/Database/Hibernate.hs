@@ -8,13 +8,14 @@ module Database.Hibernate
   ,save
   ,update
   ,set
-  ,ColumnMetaData(..)
   ,Serializable(..)
   ,FieldTypeData(..)
   ,KeyTypeData(..)
   ,FieldData(..)
   ,KeyFieldData(..)
   ,RowData(..)
+  ,ColumnMetaData(..)
+  ,TableMetaData(..)
   ,dummy2
 )
 where
@@ -22,3 +23,4 @@ where
 import Database.Hibernate.Session
 import Database.Hibernate.Transaction
 import Database.Hibernate.Serialization
+import Database.Hibernate.Meta

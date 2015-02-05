@@ -18,6 +18,13 @@ data Country = Country { cName :: String } deriving (Show)
 cNameL f c@(Country name) = (\name' -> c { cName = name' }) <$> f name
 cNameCol = CountryNameField
 
+instance TableMetaData Country where
+  tableName _ = "Country"
+  mapColumns t f = f cn cd : []
+    where
+      cn = columnName CountryNameField
+      cd = getFieldData CountryNameField t
+
 data CountryNameField = CountryNameField
 
 instance ColumnMetaData CountryNameField where
@@ -34,7 +41,15 @@ data State = State {
     deriving (Show)
 
 sNameL f s@(State name _) = (\name' -> s { sName = name' }) <$> f name
-sCountryL  f s@(State _ country) = (\country' -> s { sCountry = country' }) <$> f country
+sNameCol = StateNameField
+sCountryL  f s@(State _ cntry) = (\country' -> s { sCountry = country' }) <$> f cntry
+
+instance TableMetaData State where
+  tableName _ = "State"
+  mapColumns t f = f cn cd : []
+    where
+      cn = columnName StateNameField
+      cd = getFieldData StateNameField t
 
 data StateNameField = StateNameField
 
@@ -44,8 +59,6 @@ instance ColumnMetaData StateNameField where
   columnName _ = "name"
   lens _ f c@(State name _) = (\name' -> c { sName = name' }) <$> f name
   toFieldData _ = StringData
-
-sNameCol = StateNameField
 
 data City = City {
       ccName    :: String

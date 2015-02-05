@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
 module Database.Hibernate.Session
 (
    session
@@ -9,13 +9,13 @@ module Database.Hibernate.Session
   ,save
   ,update
   ,set
-  ,ColumnMetaData(..)
 )
 where
 
 import Database.Hibernate.Driver (Driver, driverSave, driverUpdate, genericSessionDriver)
 import Database.Hibernate.Serialization
 import Database.Hibernate.Driver.Command
+import Database.Hibernate.Meta
 import Control.Applicative
 import Control.Monad (ap, mzero, mplus, MonadPlus, liftM)
 import Control.Arrow (first)
@@ -70,19 +70,13 @@ instance (MonadIO m) => MonadIO (SessionT m) where
 
 -- Session commands
 
-save :: (MonadIO m, Serializable a) => a -> SessionT m a
+save :: (MonadIO m, TableMetaData a) => a -> SessionT m a
 save x = SessionT $ \sd -> do
-  _ <- liftIO . driverSave sd . buildCommands . dehydrate $ x           -- TODO: this will return a response that has the key in it, which must be put in x (which will require a type family to do probably)
+  _ <- liftIO . driverSave sd $ buildCommands           -- TODO: this will return a response that has the key in it, which must be put in x (which will require a type family to do probably)
   return (x, sd)
   where
-    buildCommands (RowData tableName fieldData _) = SaveTable (TableInfo tableName "") . map buildColumn $ fieldData
-    buildColumn (FieldData colName fieldData) = StoreColumnData (FieldInfo colName) . buildColumValue $ fieldData
-    buildColumValue (BoolFieldData val) = BoolData val
-    buildColumValue (Int16FieldData val) = IntData . fromIntegral $ val
-    buildColumValue (IntFieldData val) = IntData val
-    buildColumValue (CharFieldData val) = CharData val
-    buildColumValue (StringFieldData val) = StringData val
-    buildColumValue (NullableFieldData val) = NullableData . fmap buildColumValue $ val
+    buildCommands = SaveTable (TableInfo (tableName x) "") $ mapColumns x tosd
+    tosd n = StoreColumnData (FieldInfo n)
  
 update :: (MonadIO m, Serializable a) => a -> ((a, UpdateTable) -> (a, UpdateTable)) -> SessionT m a
 update x f = SessionT $ \sd -> do
@@ -91,7 +85,7 @@ update x f = SessionT $ \sd -> do
   where
     (x', ut) = f (x, UpdateTable ti [])           -- f needs to build the update commands at the same time as updating the actual structure.  We need a lens plus something with table info
     ti = tableInfo . dehydrate $ x
-    tableInfo (RowData tableName _ _) = TableInfo tableName ""
+    tableInfo (RowData tName _ _) = TableInfo tName ""
 
 set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateTable) -> (Table c, UpdateTable)
 set c v (x, uc) = (l' x, tl' uc)
@@ -99,10 +93,3 @@ set c v (x, uc) = (l' x, tl' uc)
     l' = head . lens c ((: []) . const v)
     tl' (UpdateTable ti ccs) = UpdateTable ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
-
-class ColumnMetaData c where
-  type Table c
-  type ColType c
-  columnName :: c -> String
-  lens :: Functor f => c -> (ColType c -> f (ColType c)) -> Table c -> f (Table c)
-  toFieldData :: c -> ColType c -> Database.Hibernate.Driver.Command.FieldData
