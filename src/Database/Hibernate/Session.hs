@@ -13,7 +13,6 @@ module Database.Hibernate.Session
 where
 
 import Database.Hibernate.Driver (Driver, driverSave, driverUpdate, genericSessionDriver)
-import Database.Hibernate.Serialization
 import Database.Hibernate.Driver.Command
 import Database.Hibernate.Meta
 import Control.Applicative
@@ -72,24 +71,23 @@ instance (MonadIO m) => MonadIO (SessionT m) where
 
 save :: (MonadIO m, TableMetaData a) => a -> SessionT m a
 save x = SessionT $ \sd -> do
-  _ <- liftIO . driverSave sd $ buildCommands           -- TODO: this will return a response that has the key in it, which must be put in x (which will require a type family to do probably)
+  _ <- liftIO . driverSave sd $ buildCommands                         -- TODO: this will return a response that has the key in it, which must be put in x (which will require a type family to do probably)
   return (x, sd)
   where
     buildCommands = SaveTable (TableInfo (tableName x) "") $ mapColumns x tosd
     tosd n = StoreColumnData (FieldInfo n)
  
-update :: (MonadIO m, Serializable a) => a -> ((a, UpdateTable) -> (a, UpdateTable)) -> SessionT m a
+update :: (MonadIO m, TableMetaData a) => a -> ((a, UpdateTable) -> (a, UpdateTable)) -> SessionT m a
 update x f = SessionT $ \sd -> do
   _ <- liftIO . driverUpdate sd $ ut                                  -- TODO: this will return a response that has the key in it, which must be put in x' (which will require a type family to do probably)
   return (x', sd)
   where
-    (x', ut) = f (x, UpdateTable ti [])           -- f needs to build the update commands at the same time as updating the actual structure.  We need a lens plus something with table info
-    ti = tableInfo . dehydrate $ x
-    tableInfo (RowData tName _ _) = TableInfo tName ""
+    (x', ut) = f (x, UpdateTable ti [])
+    ti = TableInfo (tableName x) (schemaName x)
 
 set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateTable) -> (Table c, UpdateTable)
 set c v (x, uc) = (l' x, tl' uc)
   where
-    l' = head . lens c ((: []) . const v)
+    l' = head . lens c ((: []) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
     tl' (UpdateTable ti ccs) = UpdateTable ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v

@@ -18,7 +18,6 @@ library
                    Database.Hibernate.Session.Class,
                    Database.Hibernate.Types,
                    Database.Hibernate.Driver,
-                   Database.Hibernate.Serialization,
                    Database.Hibernate.Driver.Command,
                    Database.Hibernate.Meta
 
@@ -39,7 +38,6 @@ test-suite hibernate-test
                   Database.Hibernate.Session.Class,
                   Database.Hibernate.Types,
                   Database.Hibernate.Driver,
-                  Database.Hibernate.Serialization,
                   Database.Hibernate.Driver.Command,
                   Database.Hibernate.Meta
   hs-source-dirs:  

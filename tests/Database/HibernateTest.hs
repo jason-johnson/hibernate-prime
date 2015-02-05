@@ -1,31 +1,29 @@
 {-# OPTIONS_GHC -F -pgmF htfpp #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE TypeFamilies   #-}
 module Database.HibernateTest where
 
 import Database.Hibernate
-import Database.Hibernate.Driver.Command (FieldData(StringData))
+import Database.Hibernate.Driver.Command (FieldData(StringData, IntData))
 
 import Test.Framework
 import Data.Functor ((<$>))
-import Control.Applicative (Const(..))
 
 data Country = Country { cName :: String } deriving (Show)
 
-cNameL f c@(Country name) = (\name' -> c { cName = name' }) <$> f name
+data CountryNameField = CountryNameField
+
+cNameCol :: CountryNameField
 cNameCol = CountryNameField
 
 instance TableMetaData Country where
   tableName _ = "Country"
-  mapColumns t f = f cn cd : []
+  mapColumns t f = [f cn cd]
     where
       cn = columnName CountryNameField
       cd = getFieldData CountryNameField t
-
-data CountryNameField = CountryNameField
 
 instance ColumnMetaData CountryNameField where
   type Table CountryNameField = Country
@@ -40,24 +38,23 @@ data State = State {
     }
     deriving (Show)
 
-sNameL f s@(State name _) = (\name' -> s { sName = name' }) <$> f name
+data StateNameField = StateNameField
+
+sNameCol :: StateNameField
 sNameCol = StateNameField
-sCountryL  f s@(State _ cntry) = (\country' -> s { sCountry = country' }) <$> f cntry
 
 instance TableMetaData State where
   tableName _ = "State"
-  mapColumns t f = f cn cd : []
+  mapColumns t f = [f cn cd]
     where
       cn = columnName StateNameField
       cd = getFieldData StateNameField t
-
-data StateNameField = StateNameField
 
 instance ColumnMetaData StateNameField where
   type Table StateNameField = State
   type ColType StateNameField = String
   columnName _ = "name"
-  lens _ f c@(State name _) = (\name' -> c { sName = name' }) <$> f name
+  lens _ f s@(State name _) = (\name' -> s { sName = name' }) <$> f name
   toFieldData _ = StringData
 
 data City = City {
@@ -67,9 +64,38 @@ data City = City {
     }
     deriving (Show)
 
-ccNameL f c@(City name _ _) = (\name' -> c { ccName = name' }) <$> f name
-ccStateL f c@(City _ st _) = (\state' -> c { cState = state' }) <$> f st
-ccZipCodeL f c@(City _ _ zc) = (\zc' -> c { cZipCode = zc' }) <$> f zc
+data CityNameField = CityNameField
+
+ccNameCol :: CityNameField
+ccNameCol = CityNameField
+
+instance ColumnMetaData CityNameField where
+  type Table CityNameField = City
+  type ColType CityNameField = String
+  columnName _ = "name"
+  lens _ f c@(City name _ _) = (\name' -> c { ccName = name' }) <$> f name
+  toFieldData _ = StringData
+
+data CityZipCodeField = CityZipCodeField
+
+cZipCodeCol :: CityZipCodeField
+cZipCodeCol = CityZipCodeField
+
+instance ColumnMetaData CityZipCodeField where
+  type Table CityZipCodeField = City
+  type ColType CityZipCodeField = String
+  columnName _ = "zip_code"
+  lens _ f c@(City _ _ zc) = (\zc' -> c { cZipCode = zc' }) <$> f zc
+  toFieldData _ = StringData
+
+instance TableMetaData City where
+  tableName _ = "City"
+  mapColumns t f = [f cn cd, f zcn zcd]
+    where
+      cn = columnName CityNameField
+      cd = getFieldData CityNameField t
+      zcn = columnName CityZipCodeField
+      zcd = getFieldData CityZipCodeField t
 
 data Address = Address {
       aStreetName  :: String
@@ -78,49 +104,54 @@ data Address = Address {
     }
     deriving (Show)
 
-aStreetNameL f a@(Address name _ _) = (\name' -> a { aStreetName = name' }) <$> f name
-aPOBoxL f a@(Address _ pobox _) = (\pobox' -> a { aPOBox = pobox' }) <$> f pobox
-aCityL f a@(Address name _ _) = (\name' -> a { aStreetName = name' }) <$> f name
+data AddressStreetNameField = AddressStreetNameField
 
-class NameLens a t | a -> where
-  nameL :: Functor f => (t -> f t) -> a -> f a
+aStreetNameCol :: AddressStreetNameField
+aStreetNameCol = AddressStreetNameField
 
-instance NameLens Country String where nameL = cNameL
-instance NameLens State String where nameL = sNameL
-instance NameLens City String where nameL = ccNameL
+instance ColumnMetaData AddressStreetNameField where
+  type Table AddressStreetNameField = Address
+  type ColType AddressStreetNameField = String
+  columnName _ = "name"
+  lens _ f a@(Address name _ _) = (\name' -> a { aStreetName = name' }) <$> f name
+  toFieldData _ = StringData
 
-get l = getConst . (l Const)
---set' l v = head . l ((:[]) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in Identity, but the idea is the same
+data AddressPOBoxField = AddressPOBoxField
 
--- get (ccStateL . sCountryL . cNameL) city                     --> "CH"
--- set (ccStateL . sCountryL . nameL) "EU" city                 -->  Just (City {ccName = "Buchs", cState = State {sName = "SG", sCountry = Country {cName = "EU"}}, cZipCode = "9470"})
+aPOBoxCol :: AddressPOBoxField
+aPOBoxCol = AddressPOBoxField
 
-country = Country "CH"
-state = State "SG" country
-city = City "Buchs" state "9470"
-address = Address "Steinweg" 12 city
+instance ColumnMetaData AddressPOBoxField where
+  type Table AddressPOBoxField = Address
+  type ColType AddressPOBoxField = Int
+  columnName _ = "zip_code"
+  lens _ f a@(Address _ pobox _) = (\pobox' -> a { aPOBox = pobox' }) <$> f pobox
+  toFieldData _ = IntData
 
-instance Serializable Country where
-  dehydrate c = RowData "Country" [FieldData "name" (StringFieldData . get cNameL $ c)] []
-  hydrate _ = undefined
-
-instance Serializable State where
-  dehydrate s = RowData "State" [FieldData "name" (StringFieldData . get sNameL $ s), FieldData "country_name" (StringFieldData . get (sCountryL . cNameL) $ s)] []
-  hydrate _ = undefined
+instance TableMetaData Address where
+  tableName _ = "City"
+  mapColumns t f = [f sn sd, f pon pod]
+    where
+      sn = columnName AddressStreetNameField
+      sd = getFieldData AddressStreetNameField t
+      pon = columnName AddressPOBoxField
+      pod = getFieldData AddressPOBoxField t
 
 saveCountry :: String -> Session Country
 saveCountry = save . Country
 
-x :: IO (Country, State)
+x :: IO (Country, State, City, Address)
 x = runSession f genericSessionDriver
   where f = do
               c     <- saveCountry "CH"
               s     <- save $ State "SG" c          -- TODO: This will do a lookup in the cache for the id number of this country
               c'    <- update c $ set cNameCol "CH2"
               s'    <- update s $ set sNameCol "SG2"
---            city  <- save $ City "Buchs" s "9470"
---            city' <-  set <$> ccZipCodeL "9940" <*>  sStateL s $ city
-              return (c', s')
+              city  <- save $ City "Buchs" s' "9470"
+              city' <- update city $ set ccNameCol "Buchs2" . set cZipCodeCol "9940"
+              addr  <- save $ Address "Steinweg" 12 city'
+              addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
+              return (c', s', city', addr')
 
 -- NEW STRATEGY
 
