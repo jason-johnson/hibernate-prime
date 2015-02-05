@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE TypeFamilies   #-}
 module Database.HibernateTest where
 
 import Database.Hibernate
@@ -15,7 +16,16 @@ import Control.Applicative (Const(..))
 data Country = Country { cName :: String } deriving (Show)
 
 cNameL f c@(Country name) = (\name' -> c { cName = name' }) <$> f name
-cNameCol = (cNameL, "name", StringData)
+cNameCol = CountryNameField
+
+data CountryNameField = CountryNameField
+
+instance ColumnMetaData CountryNameField where
+  type Table CountryNameField = Country
+  type ColType CountryNameField = String
+  columnName _ = "name"
+  lens _ f c@(Country name) = (\name' -> c { cName = name' }) <$> f name
+  toFieldData _ = StringData
 
 data State = State {
       sName     :: String
@@ -24,8 +34,18 @@ data State = State {
     deriving (Show)
 
 sNameL f s@(State name _) = (\name' -> s { sName = name' }) <$> f name
-sNameCol = (sNameL, "name", StringData)
 sCountryL  f s@(State _ country) = (\country' -> s { sCountry = country' }) <$> f country
+
+data StateNameField = StateNameField
+
+instance ColumnMetaData StateNameField where
+  type Table StateNameField = State
+  type ColType StateNameField = String
+  columnName _ = "name"
+  lens _ f c@(State name _) = (\name' -> c { sName = name' }) <$> f name
+  toFieldData _ = StringData
+
+sNameCol = StateNameField
 
 data City = City {
       ccName    :: String
@@ -35,10 +55,8 @@ data City = City {
     deriving (Show)
 
 ccNameL f c@(City name _ _) = (\name' -> c { ccName = name' }) <$> f name
-ccNameCol = (ccNameL, "name", StringData)
 ccStateL f c@(City _ st _) = (\state' -> c { cState = state' }) <$> f st
 ccZipCodeL f c@(City _ _ zc) = (\zc' -> c { cZipCode = zc' }) <$> f zc
-ccZipCodeCol = (ccZipCodeL, "zip_code", StringData)
 
 data Address = Address {
       aStreetName  :: String
@@ -59,7 +77,7 @@ instance NameLens State String where nameL = sNameL
 instance NameLens City String where nameL = ccNameL
 
 get l = getConst . (l Const)
-set' l v = head . l ((:[]) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in Identity, but the idea is the same
+--set' l v = head . l ((:[]) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in Identity, but the idea is the same
 
 -- get (ccStateL . sCountryL . cNameL) city                     --> "CH"
 -- set (ccStateL . sCountryL . nameL) "EU" city                 -->  Just (City {ccName = "Buchs", cState = State {sName = "SG", sCountry = Country {cName = "EU"}}, cZipCode = "9470"})
@@ -79,8 +97,6 @@ instance Serializable State where
 
 saveCountry :: String -> Session Country
 saveCountry = save . Country
-
-setCityData = set ccNameCol "Buchs" . set ccZipCodeCol "9470"
 
 x :: IO (Country, State)
 x = runSession f genericSessionDriver

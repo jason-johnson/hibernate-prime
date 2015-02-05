@@ -8,6 +8,7 @@ module Database.Hibernate
   ,save
   ,update
   ,set
+  ,ColumnMetaData(..)
   ,Serializable(..)
   ,FieldTypeData(..)
   ,KeyTypeData(..)

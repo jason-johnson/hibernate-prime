@@ -9,6 +9,7 @@ module Database.Hibernate.Session
   ,save
   ,update
   ,set
+  ,ColumnMetaData(..)
 )
 where
 
@@ -92,10 +93,16 @@ update x f = SessionT $ \sd -> do
     ti = tableInfo . dehydrate $ x
     tableInfo (RowData tableName _ _) = TableInfo tableName ""
 
-
-set :: ((a1 -> [b]) -> a -> [t], String, b -> Database.Hibernate.Driver.Command.FieldData) -> b -> (a, UpdateTable) -> (t, UpdateTable)
-set (l, fname, toFieldData) v (x, uc) = (l' x, tl' uc)
+set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateTable) -> (Table c, UpdateTable)
+set c v (x, uc) = (l' x, tl' uc)
   where
-    l' = head . l ((:[]) . const v)         -- TODO: If we pull in Identity, we should use that because it makes everything clearer
+    l' = head . lens c ((: []) . const v)
     tl' (UpdateTable ti ccs) = UpdateTable ti (cc : ccs)
-    cc = StoreColumnData (FieldInfo fname) $ toFieldData v
+    cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
+
+class ColumnMetaData c where
+  type Table c
+  type ColType c
+  columnName :: c -> String
+  lens :: Functor f => c -> (ColType c -> f (ColType c)) -> Table c -> f (Table c)
+  toFieldData :: c -> ColType c -> Database.Hibernate.Driver.Command.FieldData
