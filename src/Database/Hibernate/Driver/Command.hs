@@ -5,7 +5,8 @@ module Database.Hibernate.Driver.Command
   ,ColumnCommand(..)
   ,SaveEntry(..)
   ,UpdateEntry(..)
-  ,TableCommandResponse(..)
+  ,StoredResponse(..)
+  ,UpdatedResponse(..)
   ,TableInfo(..)
   ,FieldInfo(..)
 )
@@ -37,6 +38,6 @@ data UpdateEntry = UpdateEntry TableInfo [ColumnCommand]     -- Needs the key to
 
 -- Responses
 
-data TableCommandResponse =
-    Stored TableInfo KeyData
-  | Updated TableInfo KeyData
+data StoredResponse = StoredResponse TableInfo KeyData
+
+data UpdatedResponse = UpdatedResponse TableInfo KeyData
