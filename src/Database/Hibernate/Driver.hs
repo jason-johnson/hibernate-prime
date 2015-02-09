@@ -13,13 +13,14 @@ import Data.List (intercalate)
 data Driver = Driver {
          driverSave   :: SaveEntry -> IO StoredResponse
         ,driverUpdate :: UpdateEntry -> IO UpdatedResponse
+        ,driverFetch  :: FetchEntries -> IO FetchedResponse
  }
  
 instance Show (Driver) where       -- TODO: Remove this later
   show = const "SESSION-DRIVER"
 
 genericSessionDriver :: Driver
-genericSessionDriver = Driver save update
+genericSessionDriver = Driver save update fetch
   where
     save (SaveEntry ti@(TableInfo tableName _) rows) = do
       insertStmt tableName . toListPair $ rows
@@ -33,6 +34,12 @@ genericSessionDriver = Driver save update
     
     updateStmt tName xs = putStrLn $ "update " ++ tName ++ " " ++ (intercalate ", " . map (\(f,v) -> "set " ++ f ++ " = " ++ v) $ xs)
     
+    fetch (FetchEntries ti@(TableInfo tableName _) _) = do
+      putStrLn $ "select * from " ++ tableName
+      return . FetchedResponse ti $ bogusCountryData
+
+    bogusCountryData = [[RetreivedColumnData (FieldInfo "name") (StringData "Spain")], [RetreivedColumnData (FieldInfo "name") (StringData "France")]]
+
     mapCC f (StoreColumnData (FieldInfo colName) colData) = f colName colData
     
     toMaybeString (BoolData val) = justShow val

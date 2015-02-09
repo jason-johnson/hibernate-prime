@@ -3,10 +3,14 @@ module Database.Hibernate.Driver.Command
    FieldData(..)
   ,KeyData(..)
   ,ColumnCommand(..)
+  ,ExpressionCommand(..)
   ,SaveEntry(..)
   ,UpdateEntry(..)
+  ,FetchEntries(..)
   ,StoredResponse(..)
   ,UpdatedResponse(..)
+  ,FetchedResponse(..)
+  ,ColumnResponse(..)
   ,TableInfo(..)
   ,FieldInfo(..)
 )
@@ -29,6 +33,11 @@ data KeyData =
 data ColumnCommand =
   StoreColumnData FieldInfo FieldData
 
+data ExpressionCommand = ExpressionCommand
+
+data ColumnResponse =
+  RetreivedColumnData FieldInfo FieldData
+
 --data RowCommand =
 --  Insert [ColumnCommand]
 
@@ -36,8 +45,12 @@ data SaveEntry = SaveEntry TableInfo [ColumnCommand]
 
 data UpdateEntry = UpdateEntry TableInfo [ColumnCommand]     -- Needs the key to know what to update
 
+data FetchEntries = FetchEntries TableInfo [ExpressionCommand]
+
 -- Responses
 
 data StoredResponse = StoredResponse TableInfo KeyData
 
 data UpdatedResponse = UpdatedResponse TableInfo KeyData
+
+data FetchedResponse = FetchedResponse TableInfo [[ColumnResponse]]

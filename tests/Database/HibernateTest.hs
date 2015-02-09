@@ -24,6 +24,9 @@ instance TableMetaData Country where
     where
       cn = columnName CountryNameField
       cd = getFieldData CountryNameField t
+  foldColumns [] = error "impossible: no data"
+  foldColumns [(cn, StringData n)] | cn == columnName CountryNameField = Country n
+  foldColumns _ = error "impossible: wrong data"
 
 instance ColumnMetaData CountryNameField where
   type Table CountryNameField = Country
@@ -49,6 +52,9 @@ instance TableMetaData State where
     where
       cn = columnName StateNameField
       cd = getFieldData StateNameField t
+  foldColumns [] = error "impossible: no data"
+  foldColumns [(cn, StringData n)] | cn == columnName StateNameField = State n (Country "Dummy")
+  foldColumns _ = error "impossible: wrong data"
 
 instance ColumnMetaData StateNameField where
   type Table StateNameField = State
@@ -96,6 +102,14 @@ instance TableMetaData City where
       cd = getFieldData CityNameField t
       zcn = columnName CityZipCodeField
       zcd = getFieldData CityZipCodeField t
+  foldColumns = go $ City undefined (State "dummy" (Country "dummy")) undefined       -- NOTE: Hack, we plug in placeholders which will be replaced by go
+    where
+      go city [] = city
+      go city ((cn, fd):xs) = go (apf cn fd city) xs
+      apf cn (StringData n) city
+        | cn == columnName CityNameField    = city { ccName = n }
+        | cn == columnName CityZipCodeField = city { cZipCode = n }
+      apf _ _ _ = error "impossible: bogus data"
 
 data Address = Address {
       aStreetName  :: String
@@ -140,7 +154,7 @@ instance TableMetaData Address where
 saveCountry :: String -> Session Country
 saveCountry = save . Country
 
-x :: IO (Country, State, City, Address)
+x :: IO (Country, State, City, Address, [Country])
 x = runSession f genericSessionDriver
   where f = do
               c     <- saveCountry "CH"
@@ -151,7 +165,8 @@ x = runSession f genericSessionDriver
               city' <- update city $ modify ccNameCol (++ " Rules!") . set cZipCodeCol "9940"
               addr  <- save $ Address "Steinweg" 12 city'
               addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
-              return (c', s', city', addr')
+              ctys  <- fetchAll
+              return (c', s', city', addr', ctys)
 
 -- NEW STRATEGY
 

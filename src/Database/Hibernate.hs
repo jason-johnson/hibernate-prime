@@ -9,6 +9,8 @@ module Database.Hibernate
   ,update
   ,set
   ,modify
+  ,fetch
+  ,fetchAll
   ,ColumnMetaData(..)
   ,TableMetaData(..)
   ,dummy2

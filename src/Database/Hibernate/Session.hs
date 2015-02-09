@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, ScopedTypeVariables #-}
 module Database.Hibernate.Session
 (
    session
@@ -10,6 +10,8 @@ module Database.Hibernate.Session
   ,update
   ,set
   ,modify
+  ,fetch
+  ,fetchAll
 )
 where
 
@@ -105,3 +107,16 @@ modify c f (x, uc) = (x', tl' uc)
     x' = l' x
     tl' (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c $ getLens c x'
+
+fetch :: forall a m. (MonadIO m, TableMetaData a) => (FetchEntries -> FetchEntries) -> SessionT m [a]
+fetch f = SessionT $ \sd -> do
+  FetchedResponse _ rows <- liftIO . driverFetch sd $ fe
+  return (map toTable rows, sd)
+  where
+    fe = f $ FetchEntries ti []                                     -- TODO: f probably needs to take (undefined :: a) as well to make sure only columns from the correct table can be used
+    ti = TableInfo (tableName (undefined :: a)) (schemaName (undefined :: a))
+    toTable = foldColumns . map tocd
+    tocd (RetreivedColumnData (FieldInfo fn) fd) = (fn, fd)
+
+fetchAll :: (MonadIO m, TableMetaData a) => SessionT m [a]
+fetchAll = fetch id

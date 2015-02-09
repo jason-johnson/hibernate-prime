@@ -23,4 +23,5 @@ class TableMetaData t where
   schemaName :: t -> String
   schemaName _ = ""
   mapColumns :: t -> (String -> FieldData -> a) -> [a]
-  {-# MINIMAL tableName, mapColumns #-}
+  foldColumns :: [(String, FieldData)] -> t
+  {-# MINIMAL tableName, mapColumns, foldColumns #-}
