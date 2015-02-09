@@ -148,7 +148,7 @@ x = runSession f genericSessionDriver
               c'    <- update c $ set cNameCol "CH2"
               s'    <- update s $ set sNameCol "SG2"
               city  <- save $ City "Buchs" s' "9470"
-              city' <- update city $ set ccNameCol "Buchs2" . set cZipCodeCol "9940"
+              city' <- update city $ modify ccNameCol (++ " Rules!") . set cZipCodeCol "9940"
               addr  <- save $ Address "Steinweg" 12 city'
               addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
               return (c', s', city', addr')

@@ -8,6 +8,7 @@ module Database.Hibernate
   ,save
   ,update
   ,set
+  ,modify
   ,ColumnMetaData(..)
   ,TableMetaData(..)
   ,dummy2

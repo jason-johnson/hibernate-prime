@@ -9,10 +9,11 @@ module Database.Hibernate.Session
   ,save
   ,update
   ,set
+  ,modify
 )
 where
 
-import Database.Hibernate.Driver (Driver, driverSave, driverUpdate, genericSessionDriver)
+import Database.Hibernate.Driver (Driver(..), genericSessionDriver)
 import Database.Hibernate.Driver.Command
 import Database.Hibernate.Meta
 import Control.Applicative
@@ -85,9 +86,22 @@ update x f = SessionT $ \sd -> do
     (x', ut) = f (x, UpdateEntry ti [])
     ti = TableInfo (tableName x) (schemaName x)
 
+setLens :: ColumnMetaData c => c -> ColType c -> Table c -> Table c
+setLens c v = head . lens c ((: []) . const v)                      -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
+
+getLens :: ColumnMetaData c => c -> Table c -> ColType c
+getLens c = getConst . lens c Const
+
 set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
-set c v (x, uc) = (l' x, tl' uc)
-  where
-    l' = head . lens c ((: []) . const v)                            -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
+set c v (x, uc) = (setLens c v x, tl' uc)
+  where                          
     tl' (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
+
+modify :: ColumnMetaData c => c -> (ColType c -> ColType c) -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
+modify c f (x, uc) = (x', tl' uc)
+  where
+    l' = head . lens c ((: []) . f)                            -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
+    x' = l' x
+    tl' (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
+    cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c $ getLens c x'
