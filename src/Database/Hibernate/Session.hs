@@ -21,7 +21,7 @@ import Database.Hibernate.Driver.Command
 import Database.Hibernate.Meta
 import Control.Applicative
 import Control.Monad (ap, mzero, mplus, MonadPlus, liftM)
-import Control.Arrow (first)
+import Control.Arrow (first, (***))
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad.Trans.Class (lift, MonadTrans)
 import Control.Monad.Fix (mfix, MonadFix)
@@ -89,25 +89,27 @@ update x f = SessionT $ \sd -> do
     (x', ut) = f (x, UpdateEntry ti [])
     ti = TableInfo (tableName x) (schemaName x)
 
+modLens :: ColumnMetaData c => c -> (ColType c -> ColType c) -> Table c -> Table c
+modLens c f = head . lens c ((: []) . f)                      -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
+
 setLens :: ColumnMetaData c => c -> ColType c -> Table c -> Table c
-setLens c v = head . lens c ((: []) . const v)                      -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
+setLens c v = modLens c (const v)
 
 getLens :: ColumnMetaData c => c -> Table c -> ColType c
 getLens c = getConst . lens c Const
 
 set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
-set c v (x, uc) = (setLens c v x, tl' uc)
+set c v = setLens c v *** g
   where                          
-    tl' (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
+    g (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
 
 modify :: ColumnMetaData c => c -> (ColType c -> ColType c) -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
-modify c f (x, uc) = (x', tl' uc)
+modify c f (x, uc) = (x', g uc)
   where
-    l' = head . lens c ((: []) . f)                            -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
-    x' = l' x
-    tl' (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
-    cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c $ getLens c x'
+    x' = modLens c f x
+    g (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
+    cc = StoreColumnData (FieldInfo $ columnName c) . toFieldData c . getLens c $ x'
 
 fetch :: forall a m. (MonadIO m, TableMetaData a) => (FetchEntries -> FetchEntries) -> SessionT m [a]
 fetch f = SessionT $ \sd -> do
