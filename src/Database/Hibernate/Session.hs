@@ -12,6 +12,7 @@ module Database.Hibernate.Session
   ,modify
   ,fetch
   ,fetchAll
+  ,(~==)
 )
 where
 
@@ -120,3 +121,8 @@ fetch f = SessionT $ \sd -> do
 
 fetchAll :: (MonadIO m, TableMetaData a) => SessionT m [a]
 fetchAll = fetch id
+
+(~==) :: ColumnMetaData c => c -> ColType c -> FetchEntries -> FetchEntries
+c ~== v = \(FetchEntries ti exprs) -> FetchEntries ti (expr:exprs)
+  where
+    expr = ExpEq (FieldInfo . columnName $ c) (toFieldData c v)

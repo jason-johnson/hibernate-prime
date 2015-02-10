@@ -11,6 +11,7 @@ module Database.Hibernate
   ,modify
   ,fetch
   ,fetchAll
+  ,(~==)
   ,ColumnMetaData(..)
   ,TableMetaData(..)
   ,dummy2

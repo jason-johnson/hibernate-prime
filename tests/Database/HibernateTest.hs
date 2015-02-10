@@ -154,7 +154,7 @@ instance TableMetaData Address where
 saveCountry :: String -> Session Country
 saveCountry = save . Country
 
-x :: IO (Country, State, City, Address, [Country])
+x :: IO (Country, State, City, Address, [Country], [Country])
 x = runSession f genericSessionDriver
   where f = do
               c     <- saveCountry "CH"
@@ -166,7 +166,8 @@ x = runSession f genericSessionDriver
               addr  <- save $ Address "Steinweg" 12 city'
               addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
               ctys  <- fetchAll
-              return (c', s', city', addr', ctys)
+              ctys' <- fetch (cNameCol ~== "CH")
+              return (c', s', city', addr', ctys, ctys')
 
 -- NEW STRATEGY
 
@@ -204,8 +205,8 @@ x = runSession f genericSessionDriver
 
 -- johnsons :: Transaction ([Person], [Person])
 -- johnsons = do
---        byName <- filter (lastName == "Johnson")
---        byCountry <- filter (countryName.stateCountry.cityState.addressCity.personAddress == "Switzerland")        -- NOTE: these aren't exactly lenses but a custom lens with additional operations
+--        byName <- fetch (lastName ~== "Johnson")
+--        byCountry <- fetch (countryName.stateCountry.cityState.addressCity.personAddress ~== "Switzerland")        -- NOTE: these aren't exactly lenses but a custom lens with additional operations
 --        return (byName, byCountry)                                                                                -- NOTE: they can be composed with each other but the (==) will use the generator
 --                                                                                                                -- NOTE: portion of them to create a query and join on the required fields
 

@@ -33,7 +33,8 @@ data KeyData =
 data ColumnCommand =
   StoreColumnData FieldInfo FieldData
 
-data ExpressionCommand = ExpressionCommand
+data ExpressionCommand =
+  ExpEq FieldInfo FieldData
 
 data ColumnResponse =
   RetreivedColumnData FieldInfo FieldData
