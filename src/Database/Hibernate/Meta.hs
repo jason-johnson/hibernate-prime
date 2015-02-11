@@ -2,6 +2,7 @@
 module Database.Hibernate.Meta
 (
    ColumnMetaData(..)
+  ,PrimativeColumnMetaData(..)
   ,TableMetaData(..)
 )
 where
@@ -14,6 +15,8 @@ class ColumnMetaData c where
   type ColType c
   columnName :: c -> String
   lens :: Functor f => c -> (ColType c -> f (ColType c)) -> Table c -> f (Table c)
+
+class ColumnMetaData c => PrimativeColumnMetaData c where
   toFieldData :: c -> ColType c -> FieldData
   getFieldData :: c -> Table c -> FieldData
   getFieldData c t = toFieldData c $ getConst . lens c Const $ t

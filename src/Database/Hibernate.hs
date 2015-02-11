@@ -13,6 +13,7 @@ module Database.Hibernate
   ,fetchAll
   ,(~==)
   ,ColumnMetaData(..)
+  ,PrimativeColumnMetaData(..)
   ,TableMetaData(..)
   ,dummy2
 )

@@ -33,6 +33,8 @@ instance ColumnMetaData CountryNameField where
   type ColType CountryNameField = String
   columnName _ = "name"
   lens _ f c@(Country name) = (\name' -> c { cName = name' }) <$> f name
+
+instance PrimativeColumnMetaData CountryNameField where
   toFieldData _ = StringData
 
 data State = State {
@@ -61,6 +63,8 @@ instance ColumnMetaData StateNameField where
   type ColType StateNameField = String
   columnName _ = "name"
   lens _ f s@(State name _) = (\name' -> s { sName = name' }) <$> f name
+
+instance PrimativeColumnMetaData StateNameField where
   toFieldData _ = StringData
 
 data City = City {
@@ -80,6 +84,8 @@ instance ColumnMetaData CityNameField where
   type ColType CityNameField = String
   columnName _ = "name"
   lens _ f c@(City name _ _) = (\name' -> c { ccName = name' }) <$> f name
+
+instance PrimativeColumnMetaData CityNameField where
   toFieldData _ = StringData
 
 data CityZipCodeField = CityZipCodeField
@@ -92,6 +98,8 @@ instance ColumnMetaData CityZipCodeField where
   type ColType CityZipCodeField = String
   columnName _ = "zip_code"
   lens _ f c@(City _ _ zc) = (\zc' -> c { cZipCode = zc' }) <$> f zc
+
+instance PrimativeColumnMetaData CityZipCodeField where
   toFieldData _ = StringData
 
 instance TableMetaData City where
@@ -128,6 +136,8 @@ instance ColumnMetaData AddressStreetNameField where
   type ColType AddressStreetNameField = String
   columnName _ = "name"
   lens _ f a@(Address name _ _) = (\name' -> a { aStreetName = name' }) <$> f name
+
+instance PrimativeColumnMetaData AddressStreetNameField where
   toFieldData _ = StringData
 
 data AddressPOBoxField = AddressPOBoxField
@@ -140,6 +150,8 @@ instance ColumnMetaData AddressPOBoxField where
   type ColType AddressPOBoxField = Int
   columnName _ = "zip_code"
   lens _ f a@(Address _ pobox _) = (\pobox' -> a { aPOBox = pobox' }) <$> f pobox
+
+instance PrimativeColumnMetaData AddressPOBoxField where
   toFieldData _ = IntData
 
 instance TableMetaData Address where

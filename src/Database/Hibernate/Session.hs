@@ -21,7 +21,7 @@ import Database.Hibernate.Driver.Command
 import Database.Hibernate.Meta
 import Control.Applicative
 import Control.Monad (ap, mzero, mplus, MonadPlus, liftM)
-import Control.Arrow (first, (***))
+import Control.Arrow (first, (***), (&&&))
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad.Trans.Class (lift, MonadTrans)
 import Control.Monad.Fix (mfix, MonadFix)
@@ -98,13 +98,13 @@ setLens c v = modLens c (const v)
 getLens :: ColumnMetaData c => c -> Table c -> ColType c
 getLens c = getConst . lens c Const
 
-set :: ColumnMetaData c => c -> ColType c -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
+set :: PrimativeColumnMetaData c => c -> ColType c -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
 set c v = setLens c v *** g
   where                          
     g (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
 
-modify :: ColumnMetaData c => c -> (ColType c -> ColType c) -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
+modify :: PrimativeColumnMetaData c => c -> (ColType c -> ColType c) -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
 modify c f (x, uc) = (x', g uc)
   where
     x' = modLens c f x
