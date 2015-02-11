@@ -4,6 +4,7 @@ module Database.Hibernate.Meta
    ColumnMetaData(..)
   ,PrimativeColumnMetaData(..)
   ,TableMetaData(..)
+  ,ComposeColumn(..)
 )
 where
 
@@ -20,6 +21,17 @@ class ColumnMetaData c => PrimativeColumnMetaData c where
   toFieldData :: c -> ColType c -> FieldData
   getFieldData :: c -> Table c -> FieldData
   getFieldData c t = toFieldData c $ getConst . lens c Const $ t
+
+data ComposeColumn l r = ComposeColumn l r
+
+instance (ColumnMetaData l, ColumnMetaData r, ColType l ~ Table r) => ColumnMetaData (ComposeColumn l r) where
+  type Table (ComposeColumn l r) = Table l
+  type ColType (ComposeColumn l r) = ColType r
+  columnName (ComposeColumn _ r) = columnName r
+  lens (ComposeColumn l r) = lens l . lens r
+
+instance (ColumnMetaData l, PrimativeColumnMetaData r, ColType l ~ Table r) => PrimativeColumnMetaData (ComposeColumn l r) where
+  toFieldData (ComposeColumn _ r) = toFieldData r
 
 class TableMetaData t where
   tableName :: t -> String

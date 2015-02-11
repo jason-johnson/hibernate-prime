@@ -48,6 +48,11 @@ data StateNameField = StateNameField
 sNameCol :: StateNameField
 sNameCol = StateNameField
 
+data StateCountryField = StateCountryField
+
+sCountryCol :: StateCountryField
+sCountryCol = StateCountryField
+
 instance TableMetaData State where
   tableName _ = "State"
   mapColumns t f = [f cn cd]
@@ -57,6 +62,12 @@ instance TableMetaData State where
   foldColumns [] = error "impossible: no data"
   foldColumns [(cn, StringData n)] | cn == columnName StateNameField = State n (Country "Dummy")
   foldColumns _ = error "impossible: wrong data"
+
+instance ColumnMetaData StateCountryField where
+  type Table StateCountryField = State
+  type ColType StateCountryField = Country
+  columnName _ = "country_id"
+  lens _ f s@(State _ country) = (\country' -> s { sCountry = country' }) <$> f country
 
 instance ColumnMetaData StateNameField where
   type Table StateNameField = State
@@ -101,6 +112,17 @@ instance ColumnMetaData CityZipCodeField where
 
 instance PrimativeColumnMetaData CityZipCodeField where
   toFieldData _ = StringData
+
+data CityStateField = CityStateField
+
+cStateCol :: CityStateField
+cStateCol = CityStateField
+
+instance ColumnMetaData CityStateField where
+  type Table CityStateField = City
+  type ColType CityStateField = State
+  columnName _ = "state_id"
+  lens _ f c@(City _ state _) = (\state' -> c { cState = state' }) <$> f state
 
 instance TableMetaData City where
   tableName _ = "City"
@@ -166,7 +188,10 @@ instance TableMetaData Address where
 saveCountry :: String -> Session Country
 saveCountry = save . Country
 
-x :: IO (Country, State, City, Address, [Country], [Country])
+-- y = join'' cStateCol sCountryCol `join'` cNameCol `eq'` "CH"
+y = cStateCol `join'` sCountryCol <.> cNameCol ~== "CH"
+
+x :: IO (Country, State, City, Address, [Country])
 x = runSession f genericSessionDriver
   where f = do
               c     <- saveCountry "CH"
@@ -178,8 +203,8 @@ x = runSession f genericSessionDriver
               addr  <- save $ Address "Steinweg" 12 city'
               addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
               ctys  <- fetchAll
-              ctys' <- fetch (cNameCol ~== "CH")
-              return (c', s', city', addr', ctys, ctys')
+--              ctys' <- fetch (cNameCol ~== "CH")
+              return (c', s', city', addr', ctys)
 
 -- NEW STRATEGY
 

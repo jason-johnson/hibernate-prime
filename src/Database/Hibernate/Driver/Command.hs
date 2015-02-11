@@ -34,7 +34,8 @@ data ColumnCommand =
   StoreColumnData FieldInfo FieldData
 
 data ExpressionCommand =
-  ExpEq FieldInfo FieldData
+    EqExp FieldInfo FieldData
+  | JoinExp { parentTableInfo :: TableInfo, childTableInfo :: TableInfo, foreignKeyInfo :: FieldInfo, childFieldNameInfo :: FieldInfo }
 
 data ColumnResponse =
   RetreivedColumnData FieldInfo FieldData

@@ -13,6 +13,8 @@ module Database.Hibernate.Session
   ,fetch
   ,fetchAll
   ,(~==)
+  ,(<.>)
+  ,join'
 )
 where
 
@@ -92,11 +94,14 @@ update x f = SessionT $ \sd -> do
 modLens :: ColumnMetaData c => c -> (ColType c -> ColType c) -> Table c -> Table c
 modLens c f = head . lens c ((: []) . f)                      -- NOTE: We use list as Identity here so we don't have to pull in the package Identity is in, but the idea is the same
 
+modLens' :: ColumnMetaData c => c -> (ColType c -> ColType c) -> Table c -> (ColType c, Table c)
+modLens' c f = lens c (f &&& f)                               -- TODO: this is assuming that calling the function on the data twice is more efficient than using getLens to get it back out again.  Is that likely?
+
 setLens :: ColumnMetaData c => c -> ColType c -> Table c -> Table c
 setLens c v = modLens c (const v)
 
-getLens :: ColumnMetaData c => c -> Table c -> ColType c
-getLens c = getConst . lens c Const
+--getLens :: ColumnMetaData c => c -> Table c -> ColType c
+--getLens c = getConst . lens c Const
 
 set :: PrimativeColumnMetaData c => c -> ColType c -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
 set c v = setLens c v *** g
@@ -106,10 +111,12 @@ set c v = setLens c v *** g
 
 modify :: PrimativeColumnMetaData c => c -> (ColType c -> ColType c) -> (Table c, UpdateEntry) -> (Table c, UpdateEntry)
 modify c f (x, uc) = (x', g uc)
+-- modify c f = first (modLens c f) >>> fst &&& g                 -- alternative using arrows that removes the need to have x' subexpression. g would have to be modified to take (x, ut) and cc to take x
+-- modify c f = first (modLens c f) >>> g                         -- and this variant where g also returns an unmodified x with ut (UPDATE: g ((v,x), ut) = (x, UpdateEntry ti (cc v: ccs)))
   where
-    x' = modLens c f x
+    (v, x') = modLens' c f x
     g (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
-    cc = StoreColumnData (FieldInfo $ columnName c) . toFieldData c . getLens c $ x'
+    cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
 
 fetch :: forall a m. (MonadIO m, TableMetaData a) => (FetchEntries -> FetchEntries) -> SessionT m [a]
 fetch f = SessionT $ \sd -> do
@@ -124,7 +131,26 @@ fetch f = SessionT $ \sd -> do
 fetchAll :: (MonadIO m, TableMetaData a) => SessionT m [a]
 fetchAll = fetch id
 
-(~==) :: ColumnMetaData c => c -> ColType c -> FetchEntries -> FetchEntries
-c ~== v = \(FetchEntries ti exprs) -> FetchEntries ti (expr:exprs)
+-- newtype WriterArrow w a b c = WriterArrow (a b (c, w))     -- TODO: Look up the writer monad
+
+-- TODO: this needs to be converted to compose somehow, I think there must be a way to do this with arrows.  See alt defs of modify above for potential ideas
+-- TODO: but a monad might make more sense, since that might let cl be a normal value and cr be the (m b)....
+(<.>) :: (ColumnMetaData a, ColumnMetaData b) => (b, FetchEntries) -> a -> (ComposeColumn b a, FetchEntries)
+(cl, FetchEntries ti exprs) <.> cr = (c, FetchEntries ti (expr:exprs))
   where
-    expr = ExpEq (FieldInfo . columnName $ c) (toFieldData c v)
+    expr = JoinExp { parentTableInfo = pti, childTableInfo = cti, foreignKeyInfo = fi cl, childFieldNameInfo = fi cr }
+    pti = TableInfo "parent" ""
+    cti = TableInfo "child" ""
+    fi :: ColumnMetaData c => c -> FieldInfo
+    fi = FieldInfo . columnName
+    c = ComposeColumn cl cr
+
+join' :: (ColumnMetaData a, ColumnMetaData b) => b -> a -> (ComposeColumn b a, FetchEntries)
+join' cl = (<.>) (cl, FetchEntries (TableInfo "dummy" "") [])
+
+(~==) :: PrimativeColumnMetaData c => (c, FetchEntries) -> ColType c -> FetchEntries
+(c, FetchEntries ti exprs) ~== v = FetchEntries ti (expr:exprs)
+  where
+    expr = EqExp (FieldInfo . columnName $ c) (toFieldData c v)
+
+fetch' cl = (<.>) (cl, FetchEntries (TableInfo "dummy" "") [])
