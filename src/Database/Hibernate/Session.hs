@@ -15,6 +15,9 @@ module Database.Hibernate.Session
   ,(~==)
   ,(<.>)
   ,join'
+  ,join''
+  ,eq'
+  ,fetch'
 )
 where
 
@@ -118,18 +121,18 @@ modify c f (x, uc) = (x', g uc)
     g (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
 
-fetch :: forall a m. (MonadIO m, TableMetaData a) => (FetchEntries -> FetchEntries) -> SessionT m [a]
+fetch :: forall a m. (MonadIO m, TableMetaData a) => (a -> FetchEntries -> FetchEntries) -> SessionT m [a]
 fetch f = SessionT $ \sd -> do
   FetchedResponse _ rows <- liftIO . driverFetch sd $ fe
   return (map toTable rows, sd)
   where
-    fe = f $ FetchEntries ti []                                     -- TODO: f probably needs to take (undefined :: a) as well to make sure only columns from the correct table can be used
+    fe = f (undefined :: a) $ FetchEntries ti []                                     -- TODO: f probably needs to take (undefined :: a) as well to make sure only columns from the correct table can be used
     ti = TableInfo (tableName (undefined :: a)) (schemaName (undefined :: a))
     toTable = foldColumns . map tocd
     tocd (RetreivedColumnData (FieldInfo fn) fd) = (fn, fd)
 
 fetchAll :: (MonadIO m, TableMetaData a) => SessionT m [a]
-fetchAll = fetch id
+fetchAll = fetch $ const id
 
 -- newtype WriterArrow w a b c = WriterArrow (a b (c, w))     -- TODO: Look up the writer monad
 
@@ -148,9 +151,27 @@ fetchAll = fetch id
 join' :: (ColumnMetaData a, ColumnMetaData b) => b -> a -> (ComposeColumn b a, FetchEntries)
 join' cl = (<.>) (cl, FetchEntries (TableInfo "dummy" "") [])
 
+-- NOTE: If we change fetch to take the first column and "lift" it, then take another function then it could roll the whole expression up and be reactivated by the terminator (eq)
+join'' :: (ColumnMetaData r, ColumnMetaData l) => (FetchEntries -> (l, FetchEntries)) -> r -> FetchEntries -> (ComposeColumn l r, FetchEntries)
+join'' cle cr fe =
+  let
+    (cl, FetchEntries ti exprs) = cle fe
+    expr = JoinExp { parentTableInfo = pti, childTableInfo = cti, foreignKeyInfo = fi cl, childFieldNameInfo = fi cr }
+    pti = TableInfo "parent" ""
+    cti = TableInfo "child" ""
+    fi :: ColumnMetaData c => c -> FieldInfo
+    fi = FieldInfo . columnName
+    c = ComposeColumn cl cr
+  in (c, FetchEntries ti (expr:exprs))
+
+eq' :: PrimativeColumnMetaData c => (FetchEntries -> (c, FetchEntries)) -> ColType c -> Table c -> FetchEntries -> FetchEntries     -- NOTE: The Table c entry is just to keep the table in the type
+eq' ce v _ fe =
+  let
+    (c, FetchEntries ti exprs) = ce fe
+    expr = EqExp (FieldInfo . columnName $ c) (toFieldData c v)
+  in FetchEntries ti (expr:exprs)
+
 (~==) :: PrimativeColumnMetaData c => (c, FetchEntries) -> ColType c -> FetchEntries
 (c, FetchEntries ti exprs) ~== v = FetchEntries ti (expr:exprs)
   where
     expr = EqExp (FieldInfo . columnName $ c) (toFieldData c v)
-
-fetch' cl = (<.>) (cl, FetchEntries (TableInfo "dummy" "") [])

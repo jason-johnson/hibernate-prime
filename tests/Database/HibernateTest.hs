@@ -191,7 +191,9 @@ saveCountry = save . Country
 -- y = join'' cStateCol sCountryCol `join'` cNameCol `eq'` "CH"
 y = cStateCol `join'` sCountryCol <.> cNameCol ~== "CH"
 
-x :: IO (Country, State, City, Address, [Country])
+y' = (\x' -> (cStateCol, x')) `join''` sCountryCol `join''` cNameCol `eq'` "CH"
+
+x :: IO (Country, State, City, Address, [Country], [City])
 x = runSession f genericSessionDriver
   where f = do
               c     <- saveCountry "CH"
@@ -203,8 +205,8 @@ x = runSession f genericSessionDriver
               addr  <- save $ Address "Steinweg" 12 city'
               addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
               ctys  <- fetchAll
---              ctys' <- fetch (cNameCol ~== "CH")
-              return (c', s', city', addr', ctys)
+              ctys' <- fetch y'
+              return (c', s', city', addr', ctys, ctys')
 
 -- NEW STRATEGY
 
