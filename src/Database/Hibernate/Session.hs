@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes, ScopedTypeVariables, TypeFamilies #-}
 module Database.Hibernate.Session
 (
    session
@@ -14,10 +14,6 @@ module Database.Hibernate.Session
   ,fetchAll
   ,(~==)
   ,(<.>)
-  ,join'
-  ,join''
-  ,eq'
-  ,fetch'
 )
 where
 
@@ -121,25 +117,26 @@ modify c f (x, uc) = (x', g uc)
     g (UpdateEntry ti ccs) = UpdateEntry ti (cc : ccs)
     cc = StoreColumnData (FieldInfo $ columnName c) $ toFieldData c v
 
-fetch :: forall a m. (MonadIO m, TableMetaData a) => (a -> FetchEntries -> FetchEntries) -> SessionT m [a]
-fetch f = SessionT $ \sd -> do
+fetchExpression :: (MonadIO m, TableMetaData a) => FetchEntries -> SessionT m [a]
+fetchExpression fe = SessionT $ \sd -> do
   FetchedResponse _ rows <- liftIO . driverFetch sd $ fe
   return (map toTable rows, sd)
   where
-    fe = f (undefined :: a) $ FetchEntries ti []                                     -- TODO: f probably needs to take (undefined :: a) as well to make sure only columns from the correct table can be used
-    ti = TableInfo (tableName (undefined :: a)) (schemaName (undefined :: a))
     toTable = foldColumns . map tocd
     tocd (RetreivedColumnData (FieldInfo fn) fd) = (fn, fd)
 
-fetchAll :: (MonadIO m, TableMetaData a) => SessionT m [a]
-fetchAll = fetch $ const id
+fetchAll :: forall a m. (MonadIO m, TableMetaData a) => SessionT m [a]
+fetchAll = fetchExpression $ FetchEntries ti []
+  where
+    ti = TableInfo (tableName (undefined :: a)) (schemaName (undefined :: a))
 
--- newtype WriterArrow w a b c = WriterArrow (a b (c, w))     -- TODO: Look up the writer monad
+fetch :: forall a c m. (ColumnMetaData c, MonadIO m, TableMetaData a) => c -> (c, FetchEntries, FetchEntries -> SessionT m [a])
+fetch c = (c, FetchEntries ti [], fetchExpression)
+  where
+    ti = TableInfo (tableName (undefined :: a)) (schemaName (undefined :: a))
 
--- TODO: this needs to be converted to compose somehow, I think there must be a way to do this with arrows.  See alt defs of modify above for potential ideas
--- TODO: but a monad might make more sense, since that might let cl be a normal value and cr be the (m b)....
-(<.>) :: (ColumnMetaData a, ColumnMetaData b) => (b, FetchEntries) -> a -> (ComposeColumn b a, FetchEntries)
-(cl, FetchEntries ti exprs) <.> cr = (c, FetchEntries ti (expr:exprs))
+(<.>) :: (ColumnMetaData l, ColumnMetaData r, MonadIO m, TableMetaData a) => (l, FetchEntries, FetchEntries -> SessionT m [a]) -> r -> (ComposeColumn l r, FetchEntries, FetchEntries -> SessionT m [a])
+(cl, FetchEntries ti exprs, sess) <.> cr = (c, FetchEntries ti (expr:exprs), sess)
   where
     expr = JoinExp { parentTableInfo = pti, childTableInfo = cti, foreignKeyInfo = fi cl, childFieldNameInfo = fi cr }
     pti = TableInfo "parent" ""
@@ -148,30 +145,7 @@ fetchAll = fetch $ const id
     fi = FieldInfo . columnName
     c = ComposeColumn cl cr
 
-join' :: (ColumnMetaData a, ColumnMetaData b) => b -> a -> (ComposeColumn b a, FetchEntries)
-join' cl = (<.>) (cl, FetchEntries (TableInfo "dummy" "") [])
-
--- NOTE: If we change fetch to take the first column and "lift" it, then take another function then it could roll the whole expression up and be reactivated by the terminator (eq)
-join'' :: (ColumnMetaData r, ColumnMetaData l) => (FetchEntries -> (l, FetchEntries)) -> r -> FetchEntries -> (ComposeColumn l r, FetchEntries)
-join'' cle cr fe =
-  let
-    (cl, FetchEntries ti exprs) = cle fe
-    expr = JoinExp { parentTableInfo = pti, childTableInfo = cti, foreignKeyInfo = fi cl, childFieldNameInfo = fi cr }
-    pti = TableInfo "parent" ""
-    cti = TableInfo "child" ""
-    fi :: ColumnMetaData c => c -> FieldInfo
-    fi = FieldInfo . columnName
-    c = ComposeColumn cl cr
-  in (c, FetchEntries ti (expr:exprs))
-
-eq' :: PrimativeColumnMetaData c => (FetchEntries -> (c, FetchEntries)) -> ColType c -> Table c -> FetchEntries -> FetchEntries     -- NOTE: The Table c entry is just to keep the table in the type
-eq' ce v _ fe =
-  let
-    (c, FetchEntries ti exprs) = ce fe
-    expr = EqExp (FieldInfo . columnName $ c) (toFieldData c v)
-  in FetchEntries ti (expr:exprs)
-
-(~==) :: PrimativeColumnMetaData c => (c, FetchEntries) -> ColType c -> FetchEntries
-(c, FetchEntries ti exprs) ~== v = FetchEntries ti (expr:exprs)
+(~==) :: (PrimativeColumnMetaData c, MonadIO m, TableMetaData a, Table c ~ a) => (c, FetchEntries, FetchEntries -> SessionT m [a]) -> ColType c -> SessionT m [a]
+(c, FetchEntries ti exprs, sess) ~== v = sess $ FetchEntries ti (expr:exprs)
   where
     expr = EqExp (FieldInfo . columnName $ c) (toFieldData c v)

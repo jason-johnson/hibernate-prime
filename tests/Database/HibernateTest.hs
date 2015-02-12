@@ -132,7 +132,7 @@ instance TableMetaData City where
       cd = getFieldData CityNameField t
       zcn = columnName CityZipCodeField
       zcd = getFieldData CityZipCodeField t
-  foldColumns = go $ City undefined (State "dummy" (Country "dummy")) undefined       -- NOTE: Hack, we plug in placeholders which will be replaced by go
+  foldColumns = go $ City undefined (State "dummyS" (Country "dummyC")) undefined       -- NOTE: Hack, we plug in placeholders which will be replaced by go
     where
       go city [] = city
       go city ((cn, fd):xs) = go (apf cn fd city) xs
@@ -188,25 +188,23 @@ instance TableMetaData Address where
 saveCountry :: String -> Session Country
 saveCountry = save . Country
 
--- y = join'' cStateCol sCountryCol `join'` cNameCol `eq'` "CH"
-y = cStateCol `join'` sCountryCol <.> cNameCol ~== "CH"
-
-y' = (\x' -> (cStateCol, x')) `join''` sCountryCol `join''` cNameCol `eq'` "CH"
-
 x :: IO (Country, State, City, Address, [Country], [City])
 x = runSession f genericSessionDriver
   where f = do
-              c     <- saveCountry "CH"
-              s     <- save $ State "SG" c          -- TODO: This will do a lookup in the cache for the id number of this country
-              c'    <- update c $ set cNameCol "CH2"
-              s'    <- update s $ set sNameCol "SG2"
-              city  <- save $ City "Buchs" s' "9470"
-              city' <- update city $ modify ccNameCol (++ " Rules!") . set cZipCodeCol "9940"
-              addr  <- save $ Address "Steinweg" 12 city'
-              addr' <- update addr $ set aStreetNameCol "Steinweg2" . set aPOBoxCol 15
+              c     <- saveCountry "USA"
+              s     <- save $ State "NY" c          -- TODO: This will do a lookup in the cache for the id number of this country
+              c'    <- update c $ set cNameCol "USA2"
+              s'    <- update s $ set sNameCol "NY2"
+              city  <- save $ City "NYC" s' "69432"
+              city' <- update city $ modify ccNameCol (++ " Rules!") . set cZipCodeCol "69440"
+              addr  <- save $ Address "Long" 11 city'
+              addr' <- update addr $ set aStreetNameCol "Long2" . set aPOBoxCol 15
               ctys  <- fetchAll
-              ctys' <- fetch y'
+              ctys' <- fetch cStateCol <.> sCountryCol <.> cNameCol ~== "USA"
+              sts   <- fetch sNameCol ~== "NYC"         -- NOTE: Purposely not using this variable to show that the return type is inferred anyway
               return (c', s', city', addr', ctys, ctys')
+
+-- TODO: How do we deal with defaultable fields?  Maybe:   data Default a = Default | Specified a
 
 -- NEW STRATEGY
 

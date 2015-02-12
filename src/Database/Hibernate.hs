@@ -13,9 +13,6 @@ module Database.Hibernate
   ,fetchAll
   ,(~==)
   ,(<.>)
-  ,join'
-  ,join''
-  ,eq'
   ,ColumnMetaData(..)
   ,PrimativeColumnMetaData(..)
   ,TableMetaData(..)
